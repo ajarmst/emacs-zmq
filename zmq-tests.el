@@ -29,6 +29,8 @@
 (require 'ert)
 (require 'zmq)
 
+(message "ZMQ Version: %s" (zmq-version))
+
 (defun zmq-create-bound-pair (ctx type1 type2 &optional interface)
   (setq interface (or interface "tcp://127.0.0.1"))
   (let ((s1 (zmq-socket ctx type1))
