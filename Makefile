@@ -37,11 +37,18 @@ SHARED := emacs-zmq$(SHARED_EXT)
 all: $(EZMQ_LIBDIR)/$(SHARED) compile
 
 $(EZMQ_LIBDIR)/$(SHARED): src/Makefile
-	$(MAKE) CPPFLAGS=$(CPPFLAGS) -C src
+	$(MAKE) -C src
+	mkdir -p $(EZMQ_LIBDIR)
 	cp src/.libs/$(SHARED) $(EZMQ_LIBDIR)/$(SHARED)
 
+# Needed for static Windows builds of libzmq, see libzmq/INSTALL
+ifeq ($(SHARED_EXT),.dll)
+CPPFLAGS += -DZMQ_STATIC
+endif
+
 src/Makefile: src/Makefile.am src/configure
-	cd src && ./configure --host=$(ZMQ_BUILD_HOST) --prefix=$(CURDIR) \
+	cd src && ./configure CPPFLAGS="$(CPPFLAGS)" \
+		--host=$(ZMQ_BUILD_HOST) --prefix=$(CURDIR) \
 		--enable-shared=emacs-zmq --enable-static=zeromq \
 		--without-docs --enable-drafts=yes --enable-libunwind=no \
 		--disable-curve-keygen --disable-perf --disable-eventfd

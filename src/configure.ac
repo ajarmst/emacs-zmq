@@ -1,47 +1,58 @@
 AC_PREREQ([2.69])
-
 AC_INIT([emacs-zmq], [0.10.9], [nathanielnicandro@gmail.com])
-AC_CONFIG_SRCDIR([core.c])
-AC_CONFIG_MACRO_DIRS([m4])
-AM_INIT_AUTOMAKE([-Wall -Wno-override foreign])
-AC_PROG_CC
-AM_PROG_AR
-AC_CANONICAL_HOST
-AM_CONDITIONAL(WINDOWS, [test "$host_os" = mingw32])
-AM_CONDITIONAL(DARWIN, [test "$host_vendor" = apple])
 
 # Ensure the libzmq/configure script is generated
 cd libzmq
 if test "`git describe --candidates=0 2>/dev/null || echo x`" != v$ZMQ_VERSION; then
+    echo "Checking out libzmq"
     git checkout --quiet master
     git pull --quiet origin
     git checkout v$ZMQ_VERSION
     rm -f configure
 fi
 if test ! -e configure; then
+    echo "Generating libzmq configure script"
     ./autogen.sh
 fi
 cd ..
+
+AC_CONFIG_SRCDIR([core.c])
+AC_CONFIG_MACRO_DIRS([m4])
+AM_INIT_AUTOMAKE([-Wall -Wno-override foreign])
+AC_PROG_CC
+AM_PROG_AR
+AC_CANONICAL_HOST
 AC_CONFIG_SUBDIRS([libzmq])
 
-CXXFLAGS="-static -static-libgcc -static-libstdc++ $CXXFLAGS"
 case "${host_os}" in
     *darwin*)
         ;;
     *mingw*|*msys*|*cygwin*)
-        LDFLAGS="-Wl,-l:libgcc.a -Wl,-l:libstdc++.a -Wl,-lws2_32 -Wl,-liphlpapi $LDFLAGS"
+        export CXXFLAGS="-static-libgcc -static-libstdc++ $CXXFLAGS"
+        # Its necessary to pass these to the linker directly since libtool
+        # won't build emacs-zmq as a dynamic module otherwise on Windows.
+        export LDFLAGS="-Wl,-l:libstdc++.a -Wl,-l:libgcc.a -Wl,-lws2_32 -Wl,-liphlpapi $LDFLAGS"
+        on_windows=yes
         ;;
     *)
         # Assume GCC compatible compiler
         # TODO: Actually check for this
-        # PIC is needed since it isn't the default with GCC
+        # Prevent dynamic linkage of libzmq dependencies
         #
-        # For tweetnacl which is a C library and comes packaged with libzmq
-        CFLAGS="-fPIC $CFLAGS"
-        CXXFLAGS="-fPIC $CXXFLAGS"
-        LDFLAGS="-Wl,-l:libgcc.a -Wl,-l:libstdc++.a $LDFLAGS"
+        # PIC is needed since we are most likely building libzmq statically,
+        # but would like to link it to the dynamic emacs-zmq library. GCC needs
+        # to have this explicitly specified.
+        #
+        # The -fPIC for CFLAGS is needed even though emacs-zmq is already a dynamic
+        # library since libzmq comes packaged with tweetnacl which is a C library and
+        # it builds that by default.
+        export CXXFLAGS="-fPIC -static-libgcc -static-libstdc++ $CXXFLAGS"
+        export CFLAGS="-fPIC $CFLAGS"
+        export LDFLAGS="-Wl,-l:libstdc++.a -Wl,-l:libgcc.a $LDFLAGS"
         ;;
 esac
+
+AM_CONDITIONAL(WINDOWS, [test "x$on_windows" != x])
 
 LT_INIT([win32-dll shared disable-static])
 AC_CONFIG_FILES([Makefile])
