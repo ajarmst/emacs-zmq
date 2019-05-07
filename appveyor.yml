@@ -14,7 +14,7 @@ deploy:
     APPVEYOR_REPO_TAG: true
 cache:
   - C:\msys64\var\cache\pacman\pkg
-  - C:\projects\emacs-zmq\src\libzmq
+  # - C:\projects\emacs-zmq\src\libzmq
 install:
   - cd %APPVEYOR_BUILD_FOLDER%
   - pacman --needed --noconfirm -Syu

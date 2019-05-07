@@ -24,8 +24,8 @@ script:
 
 cache:
   ccache: true
-  directories:
-    - src/libzmq
+  # directories:
+  #   - src/libzmq
 jobs:
   allow_failures:
     - env: EMACS_VERSION=git-snapshot
