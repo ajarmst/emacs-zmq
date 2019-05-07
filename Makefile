@@ -5,6 +5,7 @@ EFILES := zmq.el
 # CPPFLAGS = -DEZMQ_DEBUG=0
 ELCFILES = $(EFILES:.el=.elc)
 
+export ZMQ_GIT_REPO ?= https://github.com/zeromq/libzmq
 # The version of ZMQ to build
 export ZMQ_VERSION ?= 4.3.1
 # Set ZMQ_BUILD_HOST to a host triple to enable cross compiling
@@ -14,8 +15,8 @@ EZMQ_LIBDIR ?= $(CURDIR)/$(ZMQ_BUILD_HOST)
 
 # Get the module extension for this build
 ifeq ($(ZMQ_BUILD_HOST),)
-ifneq (,$(or $(findstring MSYS, $(MSYSTEM))), \
-			 $(findstring MINGW, $(MSYSTEM)))
+ifneq (,$(or $(findstring MSYS, $(MSYSTEM)), \
+			 $(findstring MINGW, $(MSYSTEM))))
 SHARED_EXT := .dll
 else
 SHARED_EXT := .so
@@ -36,13 +37,19 @@ SHARED := emacs-zmq$(SHARED_EXT)
 all: $(EZMQ_LIBDIR)/$(SHARED) compile
 
 $(EZMQ_LIBDIR)/$(SHARED): src/Makefile
-	$(MAKE) -C src build-libzmq
-	$(MAKE) CPPFLAGS=$(CPPFLAGS) -C src install
+	$(MAKE) CPPFLAGS=$(CPPFLAGS) -C src
+	cp src/.libs/$(SHARED) $(EZMQ_LIBDIR)/$(SHARED)
 
 src/Makefile: src/Makefile.am src/configure
-	cd src && ./configure --host=$(ZMQ_BUILD_HOST) --libdir=$(EZMQ_LIBDIR)
+	cd src && ./configure --host=$(ZMQ_BUILD_HOST) --prefix=$(CURDIR) \
+		--enable-shared=emacs-zmq --enable-static=zeromq \
+		--without-docs --enable-drafts=yes --enable-libunwind=no \
+		--disable-curve-keygen --disable-perf --disable-eventfd
 
-src/configure: src/configure.ac
+src/libzmq/.git:
+	@if test ! -d src/libzmq/.git; then git clone $(ZMQ_GIT_REPO) src/libzmq; fi
+
+src/configure: src/configure.ac src/libzmq/.git
 	cd src && autoreconf -i
 
 .PHONY: test
